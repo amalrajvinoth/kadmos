@@ -1,0 +1,123 @@
+version: '3.7'
+services:
+  traefik:
+    image: traefik:v2.2.1
+    command: --api.insecure=true --providers.docker
+    ports:
+      - "80:80"
+      - "9080:9080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  postgres:
+    image: postgres:12
+    #volumes:
+    #  - db-data:/var/lib/postgresql/data
+    expose:
+      - 5432
+    ports:
+      - "5432:5432"
+    environment:
+      - "POSTGRES_USER=admin"
+      - "POSTGRES_PASSWORD=admin"
+      - "POSTGRES_DB=defaultdb"
+      #- "POSTGRES_HOST_AUTH_METHOD=trust"
+    labels:
+      - "traefik.http.routers.postgres.rule=Host(`postgres.docker.localhost`)"
+
+  redis:
+    image: redis:6
+    hostname: redis-server
+    command: redis-server --requirepass admin
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    environment:
+      REDIS_PASS: 'admin'
+    labels:
+      - "traefik.http.routers.postgres.rule=Host(`redis.docker.localhost`)"
+
+  eureka:
+    build:
+      context: eureka
+      dockerfile: Dockerfile
+    expose:
+      - 8761
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761"]
+      interval: 30s
+      timeout: 10s
+    labels:
+      - "traefik.http.routers.eureka.rule=Host(`eureka.docker.localhost`)"
+
+  gateway:
+    build:
+      context: gateway
+      dockerfile: Dockerfile
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka
+      WAIT_FOR: 'eureka:8761'
+      WAIT_FOR_TIMEOUT: '180'
+    ports:
+      - "8080:8080"
+    depends_on:
+      - eureka
+    labels:
+      - "traefik.http.routers.gateway.rule=Host(`gateway.docker.localhost`)"
+
+  auth:
+    build:
+      context: auth
+      dockerfile: Dockerfile
+    ports:
+      - "9180:9180"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka
+    labels:
+      - "traefik.http.routers.auth.rule=Host(`auth.docker.localhost`)"
+
+  savings-a:
+    hostname: savings-a.docker.localhost
+    build:
+      context: savings
+      dockerfile: Dockerfile
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka
+      REDIS_URL: 'redis://redis-server:6379'
+      REDIS_HOST: 'redis-server'
+      REDIS_PASS: 'admin'
+      WAIT_FOR: 'redis-server:6379'
+      WAIT_FOR_TIMEOUT: '180'
+      PORT: 8081
+    ports:
+      - "8081:8081"
+    labels:
+      - "traefik.http.routers.savings.a.rule=Host(`savings-a.docker.localhost`)"
+    depends_on:
+      - redis
+
+  savings-b:
+    hostname: savings-b.docker.localhost
+    build:
+      context: savings
+      dockerfile: Dockerfile
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka
+      REDIS_URL: 'redis://redis-server:6379'
+      REDIS_HOST: 'redis-server'
+      REDIS_PASS: 'admin'
+      WAIT_FOR: 'redis-server:6379'
+      WAIT_FOR_TIMEOUT: '180'
+      PORT: 8082
+    ports:
+      - "8082:8082"
+    labels:
+      - "traefik.http.routers.savings.b.rule=Host(`savings-b.docker.localhost`)"
+    depends_on:
+      - redis
+
+volumes:
+  redis-data:

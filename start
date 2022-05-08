@@ -1,0 +1,5 @@
+#!/bin/bash
+set -euxo pipefail
+mvn clean package || exit 1
+docker-compose build || exit 1
+docker-compose up -V --abort-on-container-exit || exit 1

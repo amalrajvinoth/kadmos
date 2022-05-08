@@ -1,0 +1,51 @@
+server:
+  port: ${PORT:8080}
+application:
+  name: ^project.artifactId^
+  description: ^project.name^
+  version: ^project.version^
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: ${DISCOVERY_URL:http://${DISCOVERY_HOST:localhost}:${DISCOVERY_PORT:8761}/eureka/}
+    registerWithEureka: false
+spring:
+  application:
+    name: ${application.name}
+  cloud:
+    loadbalancer:
+      ribbon:
+        enabled: false
+    gateway:
+      httpserver:
+          wiretap: true
+      httpclient:
+        response-timeout: 5s
+        wiretap: true
+      discovery:
+        locator:
+          enabled: true
+      routes:
+        - id: savings
+          uri: lb://savings
+          predicates:
+            - Path=/savings/**
+          filters:
+            - RewritePath=/savings/(?<path>.*), /$\{path}
+
+logging:
+  file:
+    name: ${application.name}.log
+  pattern:
+    file: '%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p})
+            %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}'
+    console: '%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p})
+            %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}'
+  level:
+    org.springframework.web: INFO
+    org.springframework.cloud.gateway: INFO
+    reactor.netty: INFO
+    org.springframework.web.servlet.DispatcherServlet: DEBUG
+
+jwk-jwks-uri: 'http://auth:9180/.well-known/jwks.json'
+
