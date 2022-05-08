@@ -33,9 +33,6 @@ docker logs -f kadmos_gateway_1
 ## API Testing
 
 Following users are seeded by default for jump start:
-|| User || Password ||
-| john   |  john    |
-| jack   |  jack    |
 
 | *User* | *Password* |
 |--------|:----------:|
